@@ -12,9 +12,22 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash"
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "zsh",
+            "args": [
+              "-l"
+            ]
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh"
       },
-      "extensions": ["mshr-h.veriloghdl", "surfer-project.surfer"]
+      "extensions": [
+        "mshr-h.veriloghdl",
+        "surfer-project.surfer",
+        "dalance.svls-vscode",
+        "tamasfe.even-better-toml"
+      ]
     }
   },
   "features": {
@@ -26,5 +39,5 @@
     }
   },
   "postCreateCommand": "echo 'source /ttsetup/venv/bin/activate' >> ~/.bashrc",
-  "postStartCommand": "/ttsetup/copy_tt_support_tools.sh"
+  "postStartCommand": "bash -c '.devcontainer/post-start.sh ${containerWorkspaceFolder}'"
 }
