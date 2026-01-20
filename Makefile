@@ -5,7 +5,7 @@ SVH_FILES := $(shell find src/ -follow -name "*.svh" -type f 2>/dev/null | grep 
 INCLUDE_FLAGS := $(foreach dir,$(sort $(dir $(SVH_FILES))),-I $(dir))
 V_FILES := $(SV_FILES:.sv=.sv2v.v)
 
-.PHONY: sv2v clean
+.PHONY: sv2v clean test
 
 sv2v:
 	@mkdir -p .sv2v_temp
@@ -20,3 +20,6 @@ sv2v:
 
 clean:
 	@rm -f $(V_FILES)
+
+test:
+	$(MAKE) -C test
