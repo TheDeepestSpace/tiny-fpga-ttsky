@@ -22,12 +22,17 @@ module tt_um_tiny_fpga
 
   assign uio_oe = 8'b11110000;
 
-  logic _unused_inputs;
+  logic [5:0] _unused_inputs;
   assign _unused_inputs = {ena, uio_in[7:3] };
 
   assign { uio_out[3:0], uo_out[7:1] } = '0;
 
-  tiny_fpga #( .LUT_WIDTH ( 4 ), .IO_INPUT_WDITH ( 4 ), .IO_OUTPUT_WIDTH ( 4 ) )
+  tiny_fpga
+    #(.LUT_WIDTH            ( 4 )
+    , .IO_INPUT_WDITH       ( 4 )
+    , .IO_OUTPUT_WIDTH      ( 4 )
+    , .BITSTREAM_DATA_WIDTH ( 1 )
+    )
     u_tiny_fpga
       ( .clk   ( clk   )
       , .rst_n ( rst_n )

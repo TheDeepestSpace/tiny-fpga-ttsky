@@ -32,12 +32,12 @@ module bitstream_reader #( parameter int unsigned NUM_BITS_TO_READ )
 
   // reader iterator
 
-  localparam int unsigned NUM_BITS_TO_READ_W = NUM_BITS_TO_READ <= 1 ? 1 : $clog(NUM_BITS_TO_READ);
+  localparam int unsigned NUM_BITS_TO_READ_W = NUM_BITS_TO_READ <= 1 ? 1 : $clog2(NUM_BITS_TO_READ);
 
   logic [NUM_BITS_TO_READ_W -1:0] bit_iter;
   logic read_enough_bits;
 
-  assign read_enough_bits = bit_iter == NUM_BITS_TO_READ -1;
+  assign read_enough_bits = bit_iter == NUM_BITS_TO_READ_W'(NUM_BITS_TO_READ -1);
 
   always_ff @ (posedge clk)
     if (!rst_n)                                                      bit_iter <= '0;
@@ -62,7 +62,7 @@ module bitstream_reader #( parameter int unsigned NUM_BITS_TO_READ )
 
   // completeness check
 
-  assign ready = state_now == STATE_DONE;
+  assign ready = state_now == STATE__DONE;
 
   // state machine logic
 

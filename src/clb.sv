@@ -4,6 +4,7 @@ module clb
   #(parameter int unsigned NUM_NEIGHBOUR_SIGNALS
   , parameter int unsigned NUM_IO_SIGNALS
   , parameter int unsigned LUT_WIDTH
+  , parameter int unsigned BITSTREAM_DATA_WIDTH
   )
   ( input var logic clk
   , input var logic rst_n
@@ -22,7 +23,7 @@ module clb
 
   // state declaration
 
-  typedef enum logic [2:0]
+  typedef enum logic [3:0]
     { STATE__INIT
     , STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN
     , STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT
@@ -40,6 +41,36 @@ module clb
   always_ff @ (posedge clk)
     if (!rst_n) state_now <= STATE__INIT;
     else        state_now <= state_next;
+
+  // bitstream reader proxies
+
+  axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_input_type_if();
+  axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_input_index_if();
+  axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_lut_if();
+
+  assign cfg_bitstream_input_index_if.tvalid = cfg_bitstream.tvalid;
+  assign cfg_bitstream_input_index_if.tdata  = cfg_bitstream.tdata;
+  assign cfg_bitstream_input_index_if.tlast  = cfg_bitstream.tlast;
+
+  assign cfg_bitstream_input_type_if.tvalid = cfg_bitstream.tvalid;
+  assign cfg_bitstream_input_type_if.tdata  = cfg_bitstream.tdata;
+  assign cfg_bitstream_input_type_if.tlast  = cfg_bitstream.tlast;
+
+  assign cfg_bitstream_lut_if.tvalid = cfg_bitstream.tvalid;
+  assign cfg_bitstream_lut_if.tdata  = cfg_bitstream.tdata;
+  assign cfg_bitstream_lut_if.tlast  = cfg_bitstream.tlast;
+
+  always_comb
+    case (state_now)
+      STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN, STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT:
+        cfg_bitstream.tready = cfg_bitstream_input_index_if.tready;
+      STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN, STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT:
+        cfg_bitstream.tready = cfg_bitstream_input_type_if.tready;
+      STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
+        cfg_bitstream.tready = cfg_bitstream_lut_if.tready;
+      default:
+        cfg_bitstream.tready = '0;
+    endcase
 
   // configuration
 
@@ -75,7 +106,7 @@ module clb
         STATE__INIT, STATE__IDLE:
           lut_input_iter <= '0;
         STATE__CONFIG_LUT_INPUT__END:
-          if (lut_input_iter != LUT_WIDTH -1)
+          if (lut_input_iter != LUT_INPUT_IDX_W'(LUT_WIDTH -1))
             lut_input_iter <= lut_input_iter + 1;
           else
             lut_input_iter <= lut_input_iter;
@@ -94,7 +125,7 @@ module clb
       , .rst_n ( rst_n )
 
       , .start     ( state_now == STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN )
-      , .bitstream ( cfg_bitstream                                         )
+      , .bitstream ( cfg_bitstream_input_type_if.slave                     )
 
       , .ready ( lut_input_type_ready )
       , .bits  ( lut_input_type_raw   )
@@ -105,14 +136,14 @@ module clb
         g_lut_input_iter = g_lut_input_iter + 1 ) begin: l_store_lut_input_types
     always_ff @ (posedge clk)
       if (!rst_n)
-        lut_input_types[g_lut_input_iter] <= '0;
+        lut_input_types[g_lut_input_iter] <= t_input_type'('0);
       else
         case (state_now)
           STATE__INIT:
-            lut_input_types[g_lut_input_iter] <= '0;
-          STATE__CONFIG_LUT_INPUT__READ_TYPE_END:
+            lut_input_types[g_lut_input_iter] <= t_input_type'('0);
+          STATE__CONFIG_LUT_INPUT__END:
             if (lut_input_iter == g_lut_input_iter)
-              lut_input_types[g_lut_input_iter] <= lut_input_type_raw;
+              lut_input_types[g_lut_input_iter] <= t_input_type'(lut_input_type_raw);
             else
               lut_input_types[g_lut_input_iter] <= lut_input_types[g_lut_input_iter];
           default:
@@ -131,7 +162,7 @@ module clb
       , .rst_n ( rst_n )
 
       , .start     ( state_now == STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN )
-      , .bitstream ( cfg_bitstream                                          )
+      , .bitstream ( cfg_bitstream_input_index_if.slave                     )
 
       , .ready ( lut_input_index_ready )
       , .bits  ( lut_input_index_raw   )
@@ -149,7 +180,7 @@ module clb
             neighbour_signal_idx[g_lut_input_iter] <= '0;
           STATE__CONFIG_LUT_INPUT__END:
             if (lut_input_types[g_lut_input_iter] == INPUT_TYPE__NEIGHTBOUR
-                && lut_input_index_iter == g_lut_input_iter)
+                && lut_input_iter == g_lut_input_iter)
               neighbour_signal_idx[g_lut_input_iter] <=
                 NEIGHBOUR_SIGNAL_IDX_W'(lut_input_index_raw);
             else
@@ -165,7 +196,7 @@ module clb
           STATE__INIT: io_signal_idx[g_lut_input_iter] <= '0;
           STATE__CONFIG_LUT_INPUT__END:
             if (lut_input_types[g_lut_input_iter] == INPUT_TYPE__IO
-                && lut_input_index_iter == g_lut_input_iter)
+                && lut_input_iter == g_lut_input_iter)
               io_signal_idx[g_lut_input_iter] <= IO_SIGNAL_IDX_W'(lut_input_index_raw);
             else
               io_signal_idx[g_lut_input_iter] <= io_signal_idx[g_lut_input_iter];
@@ -187,7 +218,7 @@ module clb
       case (lut_input_types[g_lut_input_iter])
         INPUT_TYPE__NEIGHTBOUR:
           lut_run_in[g_lut_input_iter] =
-            run_in_neightbours[neighbour_signal_index[g_lut_input_iter]];
+            run_in_neightbours[neighbour_signal_idx[g_lut_input_iter]];
         INPUT_TYPE__IO:
           lut_run_in[g_lut_input_iter] = run_in_io[io_signal_idx[g_lut_input_iter]];
         INPUT_TYPE__FEEDBACK:
@@ -202,13 +233,13 @@ module clb
   logic lut_cfg_ready;
   logic lut_run_out;
 
-  lut #( .WIDTH ( LUT_WIDTH ), .DEPTH ( LUT_DEPTH ) )
+  lut #( .WIDTH ( LUT_WIDTH ) )
     u_lut
       ( .clk   ( clk   )
       , .rst_n ( rst_n )
 
       , .cfg                  ( state_now == STATE__CONFIG_LUT_BEGIN )
-      , .cfg_bitstream        ( cfg_bitstream                        )
+      , .cfg_bitstream        ( cfg_bitstream_lut_if.slave           )
       , .cfg_ready            ( lut_cfg_ready                        )
 
       , .run     ( run         )
@@ -236,7 +267,7 @@ module clb
         else
           state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT;
       STATE__CONFIG_LUT_INPUT__END:
-        state_next = STATE__CONFIG_LUT_TRUTH_TABLE;
+        state_next = STATE__CONFIG_LUT_BEGIN;
       STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
         if (lut_cfg_ready)
           state_next = STATE__IDLE;

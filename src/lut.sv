@@ -81,7 +81,7 @@ module lut
         if (run)
           state_next = STATE__RUN;
         else if (cfg)
-          state_next = STATE__CONFIG;
+          state_next = STATE__CONFIG_TRUTH_TABLE_BEGIN;
         else
           state_next = STATE__IDLE;
       default:

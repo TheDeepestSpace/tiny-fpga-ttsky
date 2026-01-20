@@ -4,6 +4,7 @@ module tiny_fpga
   #(parameter int unsigned LUT_WIDTH
   , parameter int unsigned IO_INPUT_WDITH
   , parameter int unsigned IO_OUTPUT_WIDTH
+  , parameter int unsigned BITSTREAM_DATA_WIDTH
   )
   ( input var logic clk
   , input var logic rst_n
@@ -38,9 +39,10 @@ module tiny_fpga
   logic clb_cfg_ready;
 
   clb
-    #(.NUM_NEIGHBOUR_SIGNALS ( 4              )
-    , .NUM_IO_SIGNALS        ( IO_INPUT_WDITH )
-    , .LUT_WIDTH             ( LUT_WIDTH      )
+    #(.NUM_NEIGHBOUR_SIGNALS ( 4                    )
+    , .NUM_IO_SIGNALS        ( IO_INPUT_WDITH       )
+    , .LUT_WIDTH             ( LUT_WIDTH            )
+    , .BITSTREAM_DATA_WIDTH  ( BITSTREAM_DATA_WIDTH )
     )
     u_clb_1
       ( .clk   ( clk   )
@@ -52,6 +54,7 @@ module tiny_fpga
       , .run                ( run        )
       , .run_in_neightbours ( 4'bzzzz    )
       , .run_in_io          ( run_in     )
+      , .run_in_feedback    ( 1'bz       )
       , .run_out            ( run_out[0] )
       );
 
