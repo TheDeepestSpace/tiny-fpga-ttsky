@@ -36,7 +36,9 @@ module lut
   // configuration
 
   logic [DEPTH -1:0] truth_table;
-  logic truth_table_ready;
+  logic              truth_table_ready;
+
+  assign cfg_ready = truth_table_ready;
 
   bitstream_reader #( .NUM_BITS_TO_READ ( DEPTH ) )
     u_bitstream_reader_trush_table

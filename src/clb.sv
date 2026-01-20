@@ -9,9 +9,10 @@ module clb
   ( input var logic clk
   , input var logic rst_n
 
-  , input var logic     cfg
+  , input  var logic    cfg
     // TODO: design currently does not protect against rouge `tlast`s
   , axi_stream_if.slave cfg_bitstream
+  , output var logic    cfg_ready
 
   , input var logic                              run
   , input var logic [NUM_NEIGHBOUR_SIGNALS -1:0] run_in_neightbours
@@ -205,8 +206,6 @@ module clb
         endcase
   end
 
-  // configure LUT input truth table
-
   // LUT inputs
 
   logic [LUT_WIDTH -1:0] lut_run_in;
@@ -232,6 +231,11 @@ module clb
 
   logic lut_cfg_ready;
   logic lut_run_out;
+
+  assign cfg_ready = lut_cfg_ready;
+
+  // TODO: add FF bells-and-whistles
+  assign run_out = lut_run_out;
 
   lut #( .WIDTH ( LUT_WIDTH ) )
     u_lut

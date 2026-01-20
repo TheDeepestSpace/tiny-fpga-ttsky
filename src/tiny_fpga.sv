@@ -9,9 +9,10 @@ module tiny_fpga
   ( input var logic clk
   , input var logic rst_n
 
-  , input var logic     cfg
+  , input  var logic    cfg
     // TODO: design currently does not protect against rouge `tlast`s
   , axi_stream_if.slave cfg_bitstream
+  , output var logic    cfg_ready
 
   , input  var logic                        run
   , input  var logic [IO_INPUT_WDITH -1:0]  run_in
@@ -38,6 +39,8 @@ module tiny_fpga
 
   logic clb_cfg_ready;
 
+  assign cfg_ready = clb_cfg_ready;
+
   clb
     #(.NUM_NEIGHBOUR_SIGNALS ( 4                    )
     , .NUM_IO_SIGNALS        ( IO_INPUT_WDITH       )
@@ -50,11 +53,12 @@ module tiny_fpga
 
       , .cfg           ( state_now == STATE__CONFIG_CLB_BEGIN )
       , .cfg_bitstream ( cfg_bitstream                        )
+      , .cfg_ready     ( clb_cfg_ready                        )
 
       , .run                ( run        )
-      , .run_in_neightbours ( 4'bzzzz    )
+      , .run_in_neightbours ( 4'bxxxx    )
       , .run_in_io          ( run_in     )
-      , .run_in_feedback    ( 1'bz       )
+      , .run_in_feedback    ( 1'bx       )
       , .run_out            ( run_out[0] )
       );
 

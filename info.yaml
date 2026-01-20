@@ -34,7 +34,7 @@ pinout:
 
   # Outputs
   uo[0]: "(prototype) bitstream AXI's tready"
-  uo[1]: "unused"
+  uo[1]: "(prototype) FPGA configured indicator"
   uo[2]: "unused"
   uo[3]: "unused"
   uo[4]: "unused"
