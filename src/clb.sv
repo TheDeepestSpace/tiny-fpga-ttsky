@@ -1,3 +1,5 @@
+`default_nettype none
+
 module clb
   #(parameter int unsigned NUM_NEIGHBOUR_SIGNALS
   , parameter int unsigned NUM_IO_SIGNALS
@@ -88,6 +90,7 @@ module clb
           lut_input_iter <= lut_input_iter;
       endcase
 
+  // TODO: this can be abstracted into some sort of "config reader" which has pre-determined length
   always_ff @ (posedge clk)
     if (!rst_n)
       lut_input_type_iter <= '0;
@@ -127,8 +130,9 @@ module clb
         endcase
   end
 
-  // LUT input input for a given type
+  // LUT input index for a given type
 
+  // TODO: this can be abstracted into some sort of "config reader" which has pre-determined length
   always_ff @ (posedge clk)
     if (!rst_n)
       lut_input_index_iter <= '0;
