@@ -8,8 +8,9 @@ module clb
   ( input var logic clk
   , input var logic rst_n
 
-  , input var logic cfg
-  , input var logic cfg_clb_data
+  , input var logic     cfg
+    // TODO: design currently does not protect against rouge `tlast`s
+  , axi_stream_if.slave cfg_bitstream
 
   , input var logic                              run
   , input var logic [NUM_NEIGHBOUR_SIGNALS -1:0] run_in_neightbounrs
@@ -23,10 +24,13 @@ module clb
 
   typedef enum logic [2:0]
     { STATE__INIT
-    , STATE__CONFIG_LUT_INPUT__READ_TYPE  /* reads `BIT_STREAM_SIGNAL_TYPE_W` bits */
-    , STATE__CONFIG_LUT_INPUT__READ_INDEX /* reads `BIT_STREAM_SIGNAL_IDX_LENGTH` bits */
+    , STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN
+    , STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT
+    , STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN
+    , STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT
     , STATE__CONFIG_LUT_INPUT__END
-    , STATE__CONFIG_LUT_TRUTH_TABLE       /* reads `2^LUT_WIDTH-1` bits */
+    , STATE__CONFIG_LUT_BEGIN
+    , STATE__CONFIG_LUT_WAIT
     , STATE__IDLE
     , STATE__RUN
     } t_state;
@@ -39,15 +43,12 @@ module clb
 
   // configuration
 
-  localparam int unsigned BIT_STREAM_SIGNAL_TYPE_W = 2;
+  localparam int unsigned SIGNAL_TYPE_W = 2;
   // TODO: 8 bits should be prenty to udentify an address of any input type that we support right
   // now but in the future may potentially break things if the FPGA gets to be too large
-  localparam int unsigned BIT_STREAM_SIGNAL_IDX_LENGTH = 8;
+  localparam int unsigned SIGNAL_INDEX_W = 8;
 
-  // TODO: address this wild naming, idx_idx? whats next, {insert_punchline}?
-  localparam int unsigned BIT_STREAM_SIGNAL_IDX_IDX_W  = $clog(BIT_STREAM_SIGNAL_IDX_IDX_W);
-
-  typedef enum logic [BIT_STREAM_SIGNAL_TYPE_W -1:0]
+  typedef enum logic [SIGNAL_TYPE_W -1:0]
     { INPUT_TYPE__NEIGHTBOUR
     , INPUT_TYPE__IO // TODO: not the best name but i think it carried a "outside world" connotation
     , INPUT_TYPE__FEEDBACK
@@ -59,20 +60,12 @@ module clb
 
   t_input_type lut_input_types [LUT_WIDTH -1:0];
 
-  logic [NEIGHBOUR_SIGNAL_IDX_W -1:0] neighbour_signal_idx [LUT_WIDTH -1:0];
-  logic [IO_SIGNAL_IDX_W -1:0]        io_signal_idx        [LUT_WIDTH -1:0];
+  logic [NEIGHBOUR_SIGNAL_IDX_W -1:0]  neighbour_signal_idx [LUT_WIDTH -1:0];
+  logic [IO_SIGNAL_IDX_W -1:0]         io_signal_idx        [LUT_WIDTH -1:0];
 
   logic [LUT_INPUT_IDX_W -1:0] lut_input_iter;
 
-  // this feeds straight into lut_input_types vec since the width is fixed
-  logic [BIT_STREAM_SIGNAL_TYPE_W -1:0] lut_input_type_iter;
-
-  // this feeds into an intermediate register since it will need to be down-casted into the right
-  // size that correspods to the respective input type
-  logic [BIT_STREAM_SIGNAL_IDX_IDX_W -1:0]  lut_input_index_iter;
-  logic [BIT_STREAM_SIGNAL_IDX_W -1:0]      lut_input_index_raw;
-
-  // LUT input type parsing
+  // LUT input iterator
 
   always_ff @ (posedge clk)
     if (!rst_n)
@@ -90,22 +83,22 @@ module clb
           lut_input_iter <= lut_input_iter;
       endcase
 
-  // TODO: this can be abstracted into some sort of "config reader" which has pre-determined length
-  always_ff @ (posedge clk)
-    if (!rst_n)
-      lut_input_type_iter <= '0;
-    else
-      case (state_now)
-        STATE__INIT, STATE__IDLE, STATE__CONFIG_LUT_INPUT__END:
-          lut_input_type_iter <= '0;
-        STATE__CONFIG_LUT_INPUT__READ_TYPE:
-          if (lut_input_type_iter != BIT_STREAM_SIGNAL_TYPE_W -1)
-            lut_input_type_iter <= lut_input_type_iter + 1;
-          else
-            lut_input_type_iter <= lut_input_type_iter;
-        default:
-          lut_input_type_iter <= lut_input_type_iter;
-      endcase
+  // LUT input type parsing
+
+  logic                      lut_input_type_ready;
+  logic [SIGNAL_TYPE_W -1:0] lut_input_type_raw;
+
+  bitstream_reader #( .NUM_BITS_TO_READ ( SIGNAL_TYPE_W ) )
+    u_bitstream_reader_input_type
+      ( .clk   ( clk   )
+      , .rst_n ( rst_n )
+
+      , .start     ( state_now == STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN )
+      , .bitstream ( cfg_bitstream                                         )
+
+      , .ready ( lut_input_type_ready )
+      , .bits  ( lut_input_type_raw   )
+      );
 
   for ( genvar g_lut_input_iter = 0;
         g_lut_input_iter < LUT_WIDTH;
@@ -115,14 +108,11 @@ module clb
         lut_input_types[g_lut_input_iter] <= '0;
       else
         case (state_now)
-          STATE__INIT: lut_input_types[g_lut_input_iter] <= '0;
-          STATE__CONFIG_LUT_INPUT__READ_TYPE:
+          STATE__INIT:
+            lut_input_types[g_lut_input_iter] <= '0;
+          STATE__CONFIG_LUT_INPUT__READ_TYPE_END:
             if (lut_input_iter == g_lut_input_iter)
-              // TODO: i would like the expression to not include second order subscript here since
-              // it will create implicit latches; not a probelem but just want to be explicit
-              lut_input_types
-                [g_lut_input_iter]
-                  [BIT_STREAM_SIGNAL_TYPE_W -1 - lut_input_type_iter] <= cfg_clb_data;
+              lut_input_types[g_lut_input_iter] <= lut_input_type_raw;
             else
               lut_input_types[g_lut_input_iter] <= lut_input_types[g_lut_input_iter];
           default:
@@ -132,48 +122,31 @@ module clb
 
   // LUT input index for a given type
 
-  // TODO: this can be abstracted into some sort of "config reader" which has pre-determined length
-  always_ff @ (posedge clk)
-    if (!rst_n)
-      lut_input_index_iter <= '0;
-    else
-      case (state_now)
-        STATE__INIT, STATE__IDLE, STATE__CONFIG_LUT_INPUT__END:
-          lut_input_index_iter <= '0;
-        STATE__CONFIG_LUT_INPUT__READ_INDEX:
-          if (lut_input_index_iter != BIT_STREAM_SIGNAL_IDX_W -1)
-            lut_input_index_iter <= lut_input_index_iter + 1;
-          else
-            lut_input_index_iter <= lut_input_index_iter;
-        default:
-          lut_input_index_iter <= lut_input_index_iter;
-      endcase
+  logic                       lut_input_index_ready;
+  logic [SIGNAL_INDEX_W -1:0] lut_input_index_raw;
 
-  // fill up the raw type-independent index register
-  always_ff @ (posedge clk)
-    if (!rst_n) lut_input_index_raw <= '0;
-    else
-      case (state_now)
-        STATE__INIT, STATE__IDLE, STATE__CONFIG_LUT_INPUT__END:
-          lut_input_index_raw <= '0;
-        STATE__CONFIG_LUT_INPUT__READ_INDEX:
-          // TODO: again, not a fan of subsciprt here, rewrite in such a wauy that this line looks
-          // like `lut_input_index_raw <= ...` while maintaining the same functionality
-          lut_input_index_raw[lut_input_index_iter] <= cfg_clb_data;
-        default:
-          lut_input_index_raw <= lut_input_index_raw;
-      endcase
+  bitstream_reader #( .NUM_BITS_TO_READ ( SIGNAL_INDEX_W ) )
+    u_bitstream_reader_input_index
+      ( .clk   ( clk   )
+      , .rst_n ( rst_n )
 
-  // propagate the type-independent raw register into the corresponding type's register for
-  // a given LUT input
+      , .start     ( state_now == STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN )
+      , .bitstream ( cfg_bitstream                                          )
+
+      , .ready ( lut_input_index_ready )
+      , .bits  ( lut_input_index_raw   )
+      );
+
   for ( genvar g_lut_input_iter = 0;
         g_lut_input_iter < LUT_WIDTH;
         g_lut_input_iter = g_lut_input_iter + 1 ) begin: l_store_lut_input_type_specific_indices
     always_ff @ (posedge clk)
-      if (!rst_n) neighbour_signal_idx[g_lut_input_iter] <= '0;
+      if (!rst_n)
+        neighbour_signal_idx[g_lut_input_iter] <= '0;
       else
         case (state_now)
-          STATE__INIT: neighbour_signal_idx[g_lut_input_iter] <= '0;
+          STATE__INIT:
+            neighbour_signal_idx[g_lut_input_iter] <= '0;
           STATE__CONFIG_LUT_INPUT__END:
             if (lut_input_types[g_lut_input_iter] == INPUT_TYPE__NEIGHTBOUR
                 && lut_input_index_iter == g_lut_input_iter)
@@ -201,28 +174,7 @@ module clb
         endcase
   end
 
-
   // configure LUT input truth table
-
-  localparam int unsigned LUT_DEPTH = 1 << LUT_WIDTH;
-  localparam int unsigned LUT_DEPTH_W = $clog(LUT_DEPTH);
-
-  logic [LUT_DEPTH_W -1:0] lut_truth_table_iter;
-
-  always_ff @ (posedge clk)
-    if (!rst_n) lut_truth_table_iter <= '0;
-    else
-      case (state_now)
-        STATE__INIT, STATE__IDLE:
-          lut_truth_table_iter <= '0;
-        STATE__CONFIG_LUT_TRUTH_TABLE:
-          if (lut_truth_table_iter != LUT_DEPTH_W -1)
-            lut_input_index_iter <= lut_input_index_iter + 1;
-          else
-            lut_input_index_iter <= lut_input_index_iter;
-        default:
-          lut_input_index_iter <= lut_input_index_iter;
-      endcase
 
   // LUT inputs
 
@@ -247,6 +199,7 @@ module clb
 
   // instantiate LUT
 
+  logic lut_cfg_ready;
   logic lut_run_out;
 
   lut #( .WIDTH ( LUT_WIDTH ), .DEPTH ( LUT_DEPTH ) )
@@ -254,8 +207,9 @@ module clb
       ( .clk   ( clk   )
       , .rst_n ( rst_n )
 
-      , .cfg                  ( cfg && state_now == STATE__CONFIG_LUT_TRUTH_TABLE )
-      , .cfg_truth_table_data ( cfg_clb_data                                      )
+      , .cfg                  ( state_now == STATE__CONFIG_LUT_BEGIN )
+      , .cfg_bitstream        ( cfg_bitstream                        )
+      , .cfg_ready            ( lut_cfg_ready                        )
 
       , .run     ( run         )
       , .run_in  ( lut_run_in  )
@@ -268,26 +222,26 @@ module clb
     case (state_now)
       STATE__INIT:
         if (cfg)
-          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE;
+          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN;
         else
           state_next = STATE__INIT;
-      STATE__CONFIG_LUT_INPUT__READ_TYPE:
-        if (lut_input_type_iter == BIT_STREAM_SIGNAL_TYPE_W - 1)
-          state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX;
+      STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN, STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT:
+        if (lut_input_type_ready)
+          state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN;
         else
-          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE;
-      STATE__CONFIG_LUT_INPUT__READ_INDEX:
-        if (lut_input_index_iter == BIT_STREAM_SIGNAL_IDX_IDX_W - 1)
+          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT;
+      STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN, STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT:
+        if (lut_input_index_ready)
           state_next = STATE__CONFIG_LUT_INPUT__END;
         else
-          state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX;
+          state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT;
       STATE__CONFIG_LUT_INPUT__END:
         state_next = STATE__CONFIG_LUT_TRUTH_TABLE;
-      STATE__CONFIG_LUT_TRUTH_TABLE:
-        if (lut_truth_table_iter == LUT_DEPTH -1)
+      STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
+        if (lut_cfg_ready)
           state_next = STATE__IDLE;
         else
-          state_next = STATE__CONFIG_LUT_TRUTH_TABLE;
+          state_next = STATE__CONFIG_LUT_WAIT;
       STATE__IDLE:
         if (run)
           state_next = STATE__RUN;
@@ -297,7 +251,7 @@ module clb
         if (run)
           state_next = STATE__RUN;
         else if (cfg)
-          state_next = STATE__CONFIG;
+          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN;
         else
           state_next = STATE__IDLE;
       default:
