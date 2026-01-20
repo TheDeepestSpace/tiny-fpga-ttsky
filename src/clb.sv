@@ -13,7 +13,7 @@ module clb
   , axi_stream_if.slave cfg_bitstream
 
   , input var logic                              run
-  , input var logic [NUM_NEIGHBOUR_SIGNALS -1:0] run_in_neightbounrs
+  , input var logic [NUM_NEIGHBOUR_SIGNALS -1:0] run_in_neightbours
   , input var logic [NUM_IO_SIGNALS -1:0]        run_in_io // TODO: not all CLBs need IO access
   , input var logic                              run_in_feedback // TODO: allow CLBs without fb
 
@@ -187,7 +187,7 @@ module clb
       case (lut_input_types[g_lut_input_iter])
         INPUT_TYPE__NEIGHTBOUR:
           lut_run_in[g_lut_input_iter] =
-            run_in_neightbounrs[neighbour_signal_index[g_lut_input_iter]];
+            run_in_neightbours[neighbour_signal_index[g_lut_input_iter]];
         INPUT_TYPE__IO:
           lut_run_in[g_lut_input_iter] = run_in_io[io_signal_idx[g_lut_input_iter]];
         INPUT_TYPE__FEEDBACK:
