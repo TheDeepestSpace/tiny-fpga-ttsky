@@ -31,6 +31,8 @@ module clb
     , STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN
     , STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT
     , STATE__CONFIG_LUT_INPUT__END
+    , STATE__CONFIG_OUTPUT_TYPE
+    , STATE__CONFIG_OUTPUT_TYPE_WAIT
     , STATE__CONFIG_LUT_BEGIN
     , STATE__CONFIG_LUT_WAIT
     , STATE__IDLE
@@ -47,6 +49,7 @@ module clb
 
   axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_input_type_if();
   axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_input_index_if();
+  axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_output_type_if();
   axi_stream_if #( BITSTREAM_DATA_WIDTH ) cfg_bitstream_lut_if();
 
   assign cfg_bitstream_input_index_if.tvalid = cfg_bitstream.tvalid;
@@ -56,6 +59,10 @@ module clb
   assign cfg_bitstream_input_type_if.tvalid = cfg_bitstream.tvalid;
   assign cfg_bitstream_input_type_if.tdata  = cfg_bitstream.tdata;
   assign cfg_bitstream_input_type_if.tlast  = cfg_bitstream.tlast;
+
+  assign cfg_bitstream_output_type_if.tvalid = cfg_bitstream.tvalid;
+  assign cfg_bitstream_output_type_if.tdata  = cfg_bitstream.tdata;
+  assign cfg_bitstream_output_type_if.tlast  = cfg_bitstream.tlast;
 
   assign cfg_bitstream_lut_if.tvalid = cfg_bitstream.tvalid;
   assign cfg_bitstream_lut_if.tdata  = cfg_bitstream.tdata;
@@ -67,6 +74,8 @@ module clb
         cfg_bitstream.tready = cfg_bitstream_input_index_if.tready;
       STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN, STATE__CONFIG_LUT_INPUT__READ_TYPE_WAIT:
         cfg_bitstream.tready = cfg_bitstream_input_type_if.tready;
+      STATE__CONFIG_OUTPUT_TYPE, STATE__CONFIG_OUTPUT_TYPE_WAIT:
+        cfg_bitstream.tready = cfg_bitstream_output_type_if.tready;
       STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
         cfg_bitstream.tready = cfg_bitstream_lut_if.tready;
       default:
@@ -217,6 +226,33 @@ module clb
         endcase
   end
 
+  // output type configuration
+
+  localparam int unsigned OUTPUT_TYPE_W = 1;
+
+  typedef enum logic [OUTPUT_TYPE_W -1:0]
+    { OUTPUT_TYPE__SEQUENTIAL
+    , OUTPUT_TYPE__CLOCKED
+    } t_output_type;
+
+  t_output_type              output_type;
+  logic [OUTPUT_TYPE_W -1:0] output_type_raw;
+  logic                      output_type_ready;
+
+  assign output_type = t_output_type'(output_type_raw);
+
+  bitstream_reader #( .NUM_BITS_TO_READ ( OUTPUT_TYPE_W ) )
+    u_bitstream_reader_output_type
+      ( .clk   ( clk   )
+      , .rst_n ( rst_n )
+
+      , .start     ( state_now == STATE__CONFIG_OUTPUT_TYPE )
+      , .bitstream ( cfg_bitstream_output_type_if.slave     )
+
+      , .ready ( output_type_ready )
+      , .bits  ( output_type_raw   )
+      );
+
   // LUT inputs
 
   logic [LUT_WIDTH -1:0] lut_run_in;
@@ -246,9 +282,6 @@ module clb
 
   assign cfg_ready = lut_cfg_ready;
 
-  // TODO: add FF bells-and-whistles
-  assign run_out = lut_run_out;
-
   lut #( .WIDTH ( LUT_WIDTH ) )
     u_lut
       ( .clk   ( clk   )
@@ -262,6 +295,25 @@ module clb
       , .run_in  ( lut_run_in  )
       , .run_out ( lut_run_out )
       );
+
+  // output
+
+  logic clocked_run_out;
+
+  always_ff @ (posedge clk)
+    if (!rst_n)      clocked_run_out <= '0;
+    else
+      case (state_now)
+        STATE__RUN: clocked_run_out <= lut_run_out;
+        default:    clocked_run_out <= clocked_run_out;
+      endcase
+
+  always_comb
+    case (output_type)
+      OUTPUT_TYPE__SEQUENTIAL: run_out = lut_run_out;
+      OUTPUT_TYPE__CLOCKED:    run_out = clocked_run_out;
+      default:                 run_out = 'x;
+    endcase
 
   // state transition
 
@@ -284,9 +336,14 @@ module clb
           state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT;
       STATE__CONFIG_LUT_INPUT__END:
         if (lut_inputs_configured)
-          state_next = STATE__CONFIG_LUT_BEGIN;
+          state_next = STATE__CONFIG_OUTPUT_TYPE;
         else
           state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN;
+      STATE__CONFIG_OUTPUT_TYPE, STATE__CONFIG_OUTPUT_TYPE_WAIT:
+        if (output_type_ready)
+          state_next = STATE__CONFIG_LUT_BEGIN;
+        else
+          state_next = STATE__CONFIG_OUTPUT_TYPE_WAIT;
       STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
         if (lut_cfg_ready)
           state_next = STATE__IDLE;
@@ -298,12 +355,10 @@ module clb
         else
           state_next = STATE__IDLE;
       STATE__RUN:
-        if (run)
-          state_next = STATE__RUN;
-        else if (cfg)
+        if (cfg)
           state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN;
         else
-          state_next = STATE__IDLE;
+          state_next = STATE__RUN;
       default:
         state_next = STATE__INIT;
     endcase
