@@ -22,4 +22,4 @@ clean:
 	@rm -f $(V_FILES)
 
 test:
-	$(MAKE) -C test
+	$(MAKE) -C test test_all
