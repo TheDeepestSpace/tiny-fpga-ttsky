@@ -96,8 +96,11 @@ module clb
   logic [IO_SIGNAL_IDX_W -1:0]         io_signal_idx        [LUT_WIDTH -1:0];
 
   logic [LUT_INPUT_IDX_W -1:0] lut_input_iter;
+  logic                        lut_inputs_configured;
 
   // LUT input iterator
+
+  assign lut_inputs_configured = lut_input_iter == LUT_INPUT_IDX_W'(LUT_WIDTH -1);
 
   always_ff @ (posedge clk)
     if (!rst_n)
@@ -142,7 +145,15 @@ module clb
         case (state_now)
           STATE__INIT:
             lut_input_types[g_lut_input_iter] <= t_input_type'('0);
-          STATE__CONFIG_LUT_INPUT__END:
+          // it feels a bit odd to write lut input type on this state, but its necessary since we
+          // want to make sure we will be writing the index of the input for the proper type when we
+          // are done reading the index; i used to write lut input type on
+          // STATE__CONFIG_LUT_INPUT__END but it was causing a bug where the index would  keep being
+          // written into neightbour index because that's the default type and `lut_input_types`
+          // would be written to on the same clock cycle (i.e. not avaialbe at the time fo writing
+          // index); on the other hand it would also be possible to write to both neightbour and io
+          // index arrays and it would be resolved at run time; revisit
+          STATE__CONFIG_LUT_INPUT__READ_INDEX_BEGIN:
             if (lut_input_iter == g_lut_input_iter)
               lut_input_types[g_lut_input_iter] <= t_input_type'(lut_input_type_raw);
             else
@@ -219,7 +230,8 @@ module clb
           lut_run_in[g_lut_input_iter] =
             run_in_neightbours[neighbour_signal_idx[g_lut_input_iter]];
         INPUT_TYPE__IO:
-          lut_run_in[g_lut_input_iter] = run_in_io[io_signal_idx[g_lut_input_iter]];
+          lut_run_in[g_lut_input_iter] =
+            run_in_io[io_signal_idx[g_lut_input_iter]];
         INPUT_TYPE__FEEDBACK:
           lut_run_in[g_lut_input_iter] = run_in_feedback;
         default:
@@ -271,7 +283,10 @@ module clb
         else
           state_next = STATE__CONFIG_LUT_INPUT__READ_INDEX_WAIT;
       STATE__CONFIG_LUT_INPUT__END:
-        state_next = STATE__CONFIG_LUT_BEGIN;
+        if (lut_inputs_configured)
+          state_next = STATE__CONFIG_LUT_BEGIN;
+        else
+          state_next = STATE__CONFIG_LUT_INPUT__READ_TYPE_BEGIN;
       STATE__CONFIG_LUT_BEGIN, STATE__CONFIG_LUT_WAIT:
         if (lut_cfg_ready)
           state_next = STATE__IDLE;

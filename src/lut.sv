@@ -80,12 +80,10 @@ module lut
         else
           state_next = STATE__IDLE;
       STATE__RUN:
-        if (run)
-          state_next = STATE__RUN;
-        else if (cfg)
+        if (cfg)
           state_next = STATE__CONFIG_TRUTH_TABLE_BEGIN;
         else
-          state_next = STATE__IDLE;
+          state_next = STATE__RUN;
       default:
         state_next = STATE__INIT;
     endcase
