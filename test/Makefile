@@ -51,3 +51,4 @@ test_all:
 	$(MAKE) sim TOPLEVEL=tb_clb MODULE=test_clb
 	$(MAKE) clean
 	$(MAKE) sim TOPLEVEL=tb_top MODULE=test_top
+	$(MAKE) clean
