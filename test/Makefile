@@ -38,11 +38,15 @@ SIM_ARGS 				+= --trace
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(PWD)/tb.v
-TOPLEVEL = tb
+VERILOG_SOURCES += $(PWD)/tb_top.sv $(PWD)/tb_clb.sv
+TOPLEVEL ?= tb_top
 
 # List test modules to run, separated by commas and without the .py suffix:
-COCOTB_TEST_MODULES = test
+COCOTB_TEST_MODULES ?= test_top
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+test_all:
+	$(MAKE) sim TOPLEVEL=tb_clb MODULE=test_clb
+	$(MAKE) sim TOPLEVEL=tb_top MODULE=test_top
