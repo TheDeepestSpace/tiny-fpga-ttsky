@@ -31,6 +31,9 @@ VERILOG_SOURCES += $(PWD)/gate_level_netlist.v
 
 endif
 
+COMPILE_ARGS		+= --trace --trace-fst --trace-structs
+SIM_ARGS 				+= --trace
+
 # Allow sharing configuration between design and testbench via `include`:
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
