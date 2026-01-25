@@ -59,6 +59,11 @@ module tiny_fpga_2x2
         default:                                       clb_cfg_iter <= clb_cfg_iter;
       endcase
 
+  // clb bitstream tready proxy
+
+  logic [CLB_COUNT -1:0] clb_cfg_bitstream_tready;
+  assign cfg_bitstream.tready = clb_cfg_bitstream_tready[clb_cfg_iter];
+
   //  clb 0   clb 1
   //
   //  clb 2   clb 3
@@ -74,6 +79,13 @@ module tiny_fpga_2x2
   assign run_out = clb_out;
 
   for (genvar g_clb_idx = 0; g_clb_idx < CLB_COUNT; g_clb_idx = g_clb_idx + 1) begin: l_clbs
+    axi_stream_if #( .DATA_WIDTH ( BITSTREAM_DATA_WIDTH ) ) clb_cfg_bitstream_if();
+
+    assign clb_cfg_bitstream_if.tvalid         = cfg_bitstream.tvalid;
+    assign clb_cfg_bitstream_if.tdata          = cfg_bitstream.tdata;
+    assign clb_cfg_bitstream_if.tlast          = cfg_bitstream.tlast;
+    assign clb_cfg_bitstream_tready[g_clb_idx] = clb_cfg_bitstream_if.tready;
+
     clb
       #(.NUM_NEIGHBOUR_SIGNALS ( 4                    )
       , .NUM_IO_SIGNALS        ( IO_INPUT_WDITH       )
@@ -85,7 +97,7 @@ module tiny_fpga_2x2
         , .rst_n ( rst_n )
 
         , .cfg           ( state_now == STATE__CONFIG_CLB_BEGIN && g_clb_idx == clb_cfg_iter )
-        , .cfg_bitstream ( cfg_bitstream                                                     )
+        , .cfg_bitstream ( clb_cfg_bitstream_if                                              )
         , .cfg_ready     ( clb_cfg_ready[g_clb_idx]                                          )
 
         , .run                ( run                )
