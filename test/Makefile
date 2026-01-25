@@ -6,7 +6,7 @@ SIM ?= verilator
 FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = tt_um_tiny_fpga.sv tiny_fpga.sv lut.sv clb.sv bitstream_reader.sv
+PROJECT_SOURCES = tt_um_tiny_fpga.sv tiny_fpga_2x2.sv lut.sv clb.sv bitstream_reader.sv
 
 ifneq ($(GATES),yes)
 
@@ -38,7 +38,7 @@ SIM_ARGS 				+= --trace
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(PWD)/tb_top.sv $(PWD)/tb_clb.sv
+VERILOG_SOURCES += $(PWD)/tb_top.sv $(PWD)/tb_clb.sv $(PWD)/tb_2x2.sv
 TOPLEVEL ?= tb_top
 
 # List test modules to run, separated by commas and without the .py suffix:
@@ -49,6 +49,8 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 test_all:
 	$(MAKE) sim TOPLEVEL=tb_clb MODULE=test_clb
+	$(MAKE) clean
+	$(MAKE) sim TOPLEVEL=tb_2x2 MODULE=test_2x2
 	$(MAKE) clean
 	$(MAKE) sim TOPLEVEL=tb_top MODULE=test_top
 	$(MAKE) clean

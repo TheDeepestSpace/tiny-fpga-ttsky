@@ -25,12 +25,12 @@ module tt_um_tiny_fpga
   logic [5:0] _unused_inputs;
   assign _unused_inputs = {ena, uio_in[7:3] };
 
-  assign { uio_out[3:0], uo_out[7:2], uio_out[7:5] } = '0;
+  assign { uo_out[7:2], uio_out[7:4] } = '0;
 
-  tiny_fpga
+  tiny_fpga_2x2
     #(.LUT_WIDTH            ( 4 )
     , .IO_INPUT_WDITH       ( 4 )
-    , .IO_OUTPUT_WIDTH      ( 1 )
+    , .IO_OUTPUT_WIDTH      ( 4 )
     , .BITSTREAM_DATA_WIDTH ( 1 )
     )
     u_tiny_fpga
@@ -43,7 +43,7 @@ module tt_um_tiny_fpga
 
       , .run     ( ui_in[4]     )
       , .run_in  ( uio_in [3:0] )
-      , .run_out ( uio_out[4] )
+      , .run_out ( uio_out[3:0] )
       );
 
 endmodule
