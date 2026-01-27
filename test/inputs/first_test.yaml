@@ -1,0 +1,144 @@
+__standard_truth_tables:
+  "null": &tt-null
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  and-4way: &tt-and-4way
+    - 0 # 0 0 0 0
+    - 0 # 0 0 0 1
+    - 0 # 0 0 1 0
+    - 0 # 0 0 1 1
+    - 0 # 0 1 0 0
+    - 0 # 0 1 0 1
+    - 0 # 0 1 1 0
+    - 0 # 0 1 1 1
+    - 0 # 1 0 0 0
+    - 0 # 1 0 0 1
+    - 0 # 1 0 1 0
+    - 0 # 1 0 1 1
+    - 0 # 1 1 0 0
+    - 0 # 1 1 0 1
+    - 0 # 1 1 1 0
+    - 1 # 1 1 1 1
+  and-2-way: &tt-and-2way
+    - 0 # 0 0 0 0
+    - 0 # 0 0 0 1
+    - 0 # 0 0 1 0
+    - 1 # 0 0 1 1
+    - 1 # 0 1 0 0 (dont care)
+    - 1 # 0 1 0 1 (dont care)
+    - 1 # 0 1 1 0 (dont care)
+    - 1 # 0 1 1 1 (dont care)
+    - 1 # 1 0 0 0 (dont care)
+    - 1 # 1 0 0 1 (dont care)
+    - 1 # 1 0 1 0 (dont care)
+    - 1 # 1 0 1 1 (dont care)
+    - 1 # 1 1 0 0 (dont care)
+    - 1 # 1 1 0 1 (dont care)
+    - 1 # 1 1 1 0 (dont care)
+    - 1 # 1 1 1 1 (dont care)
+  or-4way: &tt-or-4way
+    - 0 # 0 0 0 0
+    - 1 # 0 0 0 1
+    - 1 # 0 0 1 0
+    - 1 # 0 0 1 1
+    - 1 # 0 1 0 0
+    - 1 # 0 1 0 1
+    - 1 # 0 1 1 0
+    - 1 # 0 1 1 1
+    - 1 # 1 0 0 0
+    - 1 # 1 0 0 1
+    - 1 # 1 0 1 0
+    - 1 # 1 0 1 1
+    - 1 # 1 1 0 0
+    - 1 # 1 1 0 1
+    - 1 # 1 1 1 0
+    - 1 # 1 1 1 1
+  xor-4way: &tt-xor-4way
+    - 0 # 0 0 0 0
+    - 1 # 0 0 0 1
+    - 1 # 0 0 1 0
+    - 0 # 0 0 1 1
+    - 1 # 0 1 0 0
+    - 0 # 0 1 0 1
+    - 0 # 0 1 1 0
+    - 1 # 0 1 1 1
+    - 1 # 1 0 0 0
+    - 0 # 1 0 0 1
+    - 0 # 1 0 1 0
+    - 1 # 1 0 1 1
+    - 0 # 1 1 0 0
+    - 1 # 1 1 0 1
+    - 1 # 1 1 1 0
+    - 0 # 1 1 1 1
+
+target:
+  clb-count: 4
+  lut-width: 4
+clbs:
+  # clb 0
+  - inputs:
+      # input 0
+      - type: io
+        index: 0
+      # input 1
+      - type: io
+        index: 1
+      # input 2
+      - type: io
+        index: 2
+      # input 3
+      - type: io
+        index: 3
+    lut-truth-table: *tt-and-4way
+    output-type: sequential
+
+  # clb 1
+  - inputs:
+      # input 0
+      - type: io
+        index: 0
+      # input 1
+      - type: io
+        index: 1
+      # input 2
+      - type: io
+        index: 2
+      # input 3
+      - type: io
+        index: 3
+    lut-truth-table: *tt-xor-4way
+    output-type: sequential
+
+  # clb 2
+  - inputs:
+      # input 0
+      - type: neighbour
+        index: 0
+      # input 1
+      - type: neighbour
+        index: 1
+      # input 2
+      - type: io
+        index: 0
+      # input 3
+      - type: io
+        index: 1
+    lut-truth-table: *tt-and-2way
+    output-type: sequential
+
+  # clb 3
+  - inputs:
+      # input 0
+      - type: io
+        index: 0
+      # input 1
+      - type: io
+        index: 0
+      # input 2
+      - type: io
+        index: 0
+      # input 3
+      - type: io
+        index: 0
+    lut-truth-table: *tt-null
+    output-type: sequential
+
