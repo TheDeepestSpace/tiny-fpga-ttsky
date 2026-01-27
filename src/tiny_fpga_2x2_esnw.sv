@@ -69,7 +69,7 @@ module tiny_fpga_2x2_esnw
   //  clb 2   clb 3
 
   /* verilator lint_off UNOPTFLAT */
-  // verilator does not like my implementation of ES/NW probably due to internal issues with its
+  // it does not like my implementation of ES/NW probably due to internal issues with its
   // optimizer, im not sure; any way i pinky promise i did not create combinational loops
   logic [CLB_COUNT -1:0] clb_out;
   /* verilator lint_on UNOPTFLAT */
