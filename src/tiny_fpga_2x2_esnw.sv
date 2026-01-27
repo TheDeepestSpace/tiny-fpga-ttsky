@@ -68,10 +68,14 @@ module tiny_fpga_2x2_esnw
   //
   //  clb 2   clb 3
 
+  /* verilator lint_off UNOPTFLAT */
+  // verilator does not like my implementation of ES/NW probably due to internal issues with its
+  // optimizer, im not sure; any way i pinky promise i did not create combinational loops
   logic [CLB_COUNT -1:0] clb_out;
+  /* verilator lint_on UNOPTFLAT */
 
-  // this is kind of a bummer but without cloking the CLB outputs we get `Signal unoptimizable:
-  // Circular combinational logic`; i think this can be addressed later
+  // in this module we are doing ES/NW routing, so we are goign to need some of the clb out's
+  // clocked to pass it back to NW neighbours
   logic [CLB_COUNT -1:0] clocked_clb_out;
 
   always_ff @ (posedge clk) clocked_clb_out <= clb_out;
