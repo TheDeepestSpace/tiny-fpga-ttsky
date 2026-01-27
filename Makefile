@@ -20,6 +20,7 @@ sv2v:
 
 clean:
 	@rm -f $(V_FILES)
+	$(MAKE) -C test clean
 
 test:
 	$(MAKE) -C test test_all
