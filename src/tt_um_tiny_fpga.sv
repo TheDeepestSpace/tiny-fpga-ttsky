@@ -27,13 +27,13 @@ module tt_um_tiny_fpga
 
   assign { uo_out[7:2], uio_out[7:4] } = '0;
 
-  tiny_fpga_2x2
+  tiny_fpga_2x2_esnw
     #(.LUT_WIDTH            ( 4 )
     , .IO_INPUT_WDITH       ( 4 )
     , .IO_OUTPUT_WIDTH      ( 4 )
     , .BITSTREAM_DATA_WIDTH ( 1 )
     )
-    u_tiny_fpga
+    u_tiny_fpga_esnw
       ( .clk   ( clk   )
       , .rst_n ( rst_n )
 
