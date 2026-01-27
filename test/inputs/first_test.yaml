@@ -23,18 +23,18 @@ __standard_truth_tables:
     - 0 # 0 0 0 1
     - 0 # 0 0 1 0
     - 1 # 0 0 1 1
-    - 1 # 0 1 0 0 (dont care)
-    - 1 # 0 1 0 1 (dont care)
-    - 1 # 0 1 1 0 (dont care)
-    - 1 # 0 1 1 1 (dont care)
-    - 1 # 1 0 0 0 (dont care)
-    - 1 # 1 0 0 1 (dont care)
-    - 1 # 1 0 1 0 (dont care)
-    - 1 # 1 0 1 1 (dont care)
-    - 1 # 1 1 0 0 (dont care)
-    - 1 # 1 1 0 1 (dont care)
-    - 1 # 1 1 1 0 (dont care)
-    - 1 # 1 1 1 1 (dont care)
+    - 0 # 0 1 0 0
+    - 0 # 0 1 0 1
+    - 0 # 0 1 1 0
+    - 1 # 0 1 1 1
+    - 0 # 1 0 0 0
+    - 0 # 1 0 0 1
+    - 0 # 1 0 1 0
+    - 1 # 1 0 1 1
+    - 0 # 1 1 0 0
+    - 0 # 1 1 0 1
+    - 0 # 1 1 1 0
+    - 1 # 1 1 1 1
   or-4way: &tt-or-4way
     - 0 # 0 0 0 0
     - 1 # 0 0 0 1

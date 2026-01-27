@@ -81,8 +81,20 @@ async def test_config_from_yaml(dut):
   saw_cfg_ready_last = await _send_bits(dut, bits)
   assert saw_cfg_ready_last
 
-  dut.run_in.value = 0
+  # Example inputs: IO[3:0] = 0b1111
+  # clb0 = AND(io0..3) -> 1
+  # clb1 = XOR(io0..3) -> 0 (even parity)
+  # clb2 = AND2(neighbour0, neighbour1) -> 0 (clb0=1, clb1=0)
+  # clb3 = null -> 0
+  expected_run_out = 0b0001
+
+  dut.run_in.value = 0b1111
   dut.run.value = 1
   await RisingEdge(dut.clk)
   dut.run.value = 0
   await RisingEdge(dut.clk)
+  assert dut.run_out.value == expected_run_out # right for the wrong reason, poor choice of inputs
+  await RisingEdge(dut.clk)
+  assert dut.run_out.value == expected_run_out
+  await RisingEdge(dut.clk)
+  assert dut.run_out.value == expected_run_out # just making sure nothing else changes
