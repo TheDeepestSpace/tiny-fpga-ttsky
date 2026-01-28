@@ -38,7 +38,8 @@ SIM_ARGS 				+= --trace
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(PWD)/tb_top.sv $(PWD)/tb_clb.sv $(PWD)/tb_2x2.sv $(PWD)/tb_2x2_esnw.sv
+VERILOG_SOURCES += $(PWD)/tb_top.sv $(PWD)/tb_clb.sv \
+	$(PWD)/tb_2x2.sv $(PWD)/tb_2x2_esnw.sv $(PWD)/tb_6x6_esnw.sv
 TOPLEVEL ?= tb_top
 
 # List test modules to run, separated by commas and without the .py suffix:
@@ -53,6 +54,8 @@ test_all:
 	$(MAKE) sim TOPLEVEL=tb_2x2 MODULE=test_2x2
 	$(MAKE) clean
 	$(MAKE) sim TOPLEVEL=tb_2x2_esnw MODULE=test_2x2_esnw
+	$(MAKE) clean
+	$(MAKE) sim TOPLEVEL=tb_6x6_esnw MODULE=test_6x6_esnw
 	$(MAKE) clean
 	$(MAKE) sim TOPLEVEL=tb_top MODULE=test_top
 	$(MAKE) clean
