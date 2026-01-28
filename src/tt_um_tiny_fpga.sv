@@ -27,10 +27,12 @@ module tt_um_tiny_fpga
 
   assign { uo_out[7:2], uio_out[7:4] } = '0;
 
-  tiny_fpga_2x2_esnw
+  logic [1:0] dead_outs;
+
+  tiny_fpga_6x6_esnw
     #(.LUT_WIDTH            ( 4 )
     , .IO_INPUT_WDITH       ( 4 )
-    , .IO_OUTPUT_WIDTH      ( 4 )
+    , .IO_OUTPUT_WIDTH      ( 6 )
     , .BITSTREAM_DATA_WIDTH ( 1 )
     )
     u_tiny_fpga_esnw
@@ -41,9 +43,9 @@ module tt_um_tiny_fpga
       , .cfg_bitstream ( bitstream_if.slave )
       , .cfg_ready     ( uo_out[1]          )
 
-      , .run     ( ui_in[4]     )
-      , .run_in  ( uio_in [3:0] )
-      , .run_out ( uio_out[3:0] )
+      , .run     ( ui_in[4]                    )
+      , .run_in  ( uio_in [3:0]                )
+      , .run_out ( { uio_out[3:0], dead_outs } )
       );
 
 endmodule
